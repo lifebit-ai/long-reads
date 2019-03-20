@@ -13,9 +13,6 @@ Channel
     .into {fai_clairvoyante; fasta_sniffles}
 }
 
-// get relative path for model for clairvoyante
-model = params.model.substring(params.model.lastIndexOf("/")+1)
-
 // set model
 model_data = "${params.model}.data-00000-of-00001"
 model_index = "${params.model}.index"
@@ -129,6 +126,7 @@ process clairvoyante {
     set file("${name}.vcf.gz"), file("${name}.vcf.gz.tbi") into clairvoyante_vcf 
 
     // TODO: add optional param for `--bed_fn <file.bed> \`
+    model = model_data.substring(0,model_data.lastIndexOf(".data-00000-of-00001")-2)
     """
     clairvoyante.py callVarBamParallel \
        --chkpnt_fn $model \
@@ -207,7 +205,7 @@ process filter_svim {
     set val(name), file(vcf) from svim_vcf
 
     output:
-    file("${name}.vcf") into svim_filtered_vcf 
+    set val(name), file("${name}.vcf") into svim_filtered_vcf 
 
     """
     cat $vcf | \
