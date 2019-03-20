@@ -213,3 +213,34 @@ process filter_svim {
          else {{ if(\$6>10) {{ print \$0 }} }} }}' > ${name}.vcf
     """
 }
+
+// process sv_length_plot {
+//     publishDir "${params.outdir}/plots", mode: 'copy'
+//     container 'lifebitai/sv-plots:latest'
+
+//     input:
+//     set val(name), file(vcf) from svim_filtered_vcf
+
+//     output:
+//     file("*")
+
+//     """
+//     SV-length-plot.py $vcf --output SV-length_${name}.png --counts ${name}.txt
+//     """
+// }
+
+
+// process sv_plot_carriers {
+//     publishDir "${params.outdir}/plots", mode: 'copy'
+//     container 'lifebitai/sv-plots:latest'
+
+//     input:
+//     set val(name), file(vcf) from svim_filtered_vcf
+
+//     output:
+//     file("*")
+
+//     """
+//     SV-carriers-plot.py $vcf --output SV-${name}_carriers.png
+//     """
+// }
