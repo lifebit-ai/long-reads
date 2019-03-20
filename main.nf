@@ -62,7 +62,6 @@ if(!params.fai) {
 
 process minimap2 {
     tag "$reads"
-    publishDir "${params.outdir}", mode: 'copy'
     container 'evolbioinfo/minimap2:v2.14'
 
     cpus threads
@@ -103,7 +102,7 @@ process mark_duplicates {
     set val(name), file(bam) from sorted_bam
 
     output:
-    set val(name), file("${name}.bam"), file("${name}.bai") into marked_dup_bam
+    set val(name), file("${name}.bam"), file("${name}.bai") into marked_bam_clairvoyante, marked_bam_sniffles
     file ("${name}.bam.metrics") into mark_dup_report
 
     """
@@ -115,11 +114,11 @@ process mark_duplicates {
     """
 }
 
-clairvoyante = marked_dup_bam.merge(fasta_clairvoyante, fai, model_data, model_index, model_meta)
+clairvoyante = marked_bam_clairvoyante.merge(fasta_clairvoyante, fai, model_data, model_index, model_meta)
 
 process clairvoyante {
     tag "$bam"
-    publishDir "${params.outdir}", mode: 'copy'
+    publishDir "${params.outdir}/clairvoyante", mode: 'copy'
     container 'lifebitai/clairvoyante:latest'
 
     cpus threads
@@ -145,5 +144,23 @@ process clairvoyante {
     export CUDA_VISIBLE_DEVICES=""
     cat commands.sh | parallel -j${task.cpus}
     vcfcat ${name}*.vcf | vcfstreamsort | bgziptabix ${name}.vcf.gz
+    """
+}
+
+process sniffles {
+    tag "$bam"
+    publishDir "${params.outdir}/sniffles", mode: 'copy'
+    container 'lifebitai/sniffles:latest'
+
+    cpus threads
+
+    input:
+    set val(name), file(bam), file(bai) from marked_bam_sniffles
+
+    output:
+    file("${name}.vcf") into sniffles_vcf 
+
+    """
+    sniffles --mapped_reads $bam --vcf ${name}.vcf --threads ${task.cpus}
     """
 }
