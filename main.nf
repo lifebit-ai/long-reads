@@ -5,12 +5,12 @@ int threads = Runtime.getRuntime().availableProcessors()
 Channel
     .fromPath(params.fasta)
     .ifEmpty { exit 1, "fasta annotation file not found: ${params.fasta}" }
-    .into { fasta_to_index; fasta_minimap2; fasta_clairvoyante }
+    .into {fasta_to_index; fasta_minimap2; fasta_clairvoyante; fasta_sniffles}
 if(params.fai){
 Channel
     .fromPath(params.fai)
     .ifEmpty{exit 1, "FASTA index file not found: ${params.fai}"}
-    .set(fai)
+    .into {fai_clairvoyante; fasta_sniffles}
 }
 
 // get relative path for model for clairvoyante
@@ -51,7 +51,7 @@ if(!params.fai) {
       file(fasta) from fasta_to_index
 
       output:
-      file("${fasta}.fai") into fai
+      file("${fasta}.fai") into (fai_clairvoyante, fai_sniffles)
 
       script:
       """
@@ -95,14 +95,13 @@ process bwa_sort {
 
 process mark_duplicates {
     tag "$bam"
-    publishDir "${params.outdir}/marked_dup_bam", mode: 'copy'
     container 'broadinstitute/gatk:latest'
 
     input:
     set val(name), file(bam) from sorted_bam
 
     output:
-    set val(name), file("${name}.bam"), file("${name}.bai") into marked_bam_clairvoyante, marked_bam_sniffles
+    set val(name), file("${name}-marked_dup.bam"), file("${name}-marked_dup.bai") into marked_bam_clairvoyante, marked_bam_sniffles
     file ("${name}.bam.metrics") into mark_dup_report
 
     """
@@ -110,11 +109,11 @@ process mark_duplicates {
     -I ${bam} \
     --CREATE_INDEX true \
     -M ${name}.bam.metrics \
-    -O ${name}.bam
+    -O ${name}-marked_dup.bam
     """
 }
 
-clairvoyante = marked_bam_clairvoyante.merge(fasta_clairvoyante, fai, model_data, model_index, model_meta)
+clairvoyante = marked_bam_clairvoyante.merge(fasta_clairvoyante, fai_clairvoyante, model_data, model_index, model_meta)
 
 process clairvoyante {
     tag "$bam"
@@ -147,6 +146,26 @@ process clairvoyante {
     """
 }
 
+sniffles_preprocessing = marked_bam_sniffles.merge(fasta_sniffles, fai_sniffles)
+
+// recompute the MD string which is required for sniffles
+process sniffles_preprocessing {
+    tag "$bam"
+    publishDir "${params.outdir}/bam", mode: 'copy'
+    container 'lifebitai/samtools:latest'
+
+    input:
+    set val(name), file(bam), file(bai), file(fasta), file(fai) from sniffles_preprocessing
+
+    output:
+    set val(name), file("${name}.bam"), file("${name}.bam.bai") into bam_md_sniffles 
+
+    """
+    samtools calmd $bam $fasta | samtools view -S -b - > ${name}.bam
+    samtools index ${name}.bam
+    """
+}
+
 process sniffles {
     tag "$bam"
     publishDir "${params.outdir}/sniffles", mode: 'copy'
@@ -155,7 +174,7 @@ process sniffles {
     cpus threads
 
     input:
-    set val(name), file(bam), file(bai) from marked_bam_sniffles
+    set val(name), file(bam), file(bai) from bam_md_sniffles
 
     output:
     file("${name}.vcf") into sniffles_vcf 
