@@ -101,7 +101,7 @@ process mark_duplicates {
     set val(name), file(bam) from sorted_bam
 
     output:
-    set val(name), file("${name}-marked_dup.bam"), file("${name}-marked_dup.bai") into marked_bam_clairvoyante, marked_bam_sniffles
+    set val(name), file("${name}-marked_dup.bam"), file("${name}-marked_dup.bai") into marked_bam_clairvoyante, marked_bam_sniffles, marked_bam_svim
     file ("${name}.bam.metrics") into mark_dup_report
 
     """
@@ -177,9 +177,41 @@ process sniffles {
     set val(name), file(bam), file(bai) from bam_md_sniffles
 
     output:
-    file("${name}.vcf") into sniffles_vcf 
+    set file(bam), file("${name}.vcf") into sniffles_vcf 
 
     """
-    sniffles --mapped_reads $bam --vcf ${name}.vcf --threads ${task.cpus}
+    sniffles --mapped_reads $bam --vcf ${name}.vcf -s ${params.min_support} --threads ${task.cpus}
+    """
+}
+
+process svim {
+    tag "$bam"
+    container 'lifebitai/svim:latest'
+
+    input:
+    set val(name), file(bam), file(bai) from marked_bam_svim
+
+    output:
+    set val(name), file("${name}/final_results.vcf") into svim_vcf 
+
+    """
+    svim alignment ${name} $bam
+    """
+}
+
+process filter_svim {
+    tag "$vcf"
+    publishDir "${params.outdir}/svim", mode: 'copy'
+
+    input:
+    set val(name), file(vcf) from svim_vcf
+
+    output:
+    file("${name}.vcf") into svim_filtered_vcf 
+
+    """
+    cat $vcf | \
+         awk '{{ if(\$1 ~ /^#/) {{ print \$0 }} \
+         else {{ if(\$6>10) {{ print \$0 }} }} }}' > ${name}.vcf
     """
 }
