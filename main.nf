@@ -14,7 +14,6 @@ Channel
 }
 
 // set model
-model = params.model.substring(params.model.lastIndexOf("/")+1)
 model_data = "${params.model}.data-00000-of-00001"
 model_index = "${params.model}.index"
 model_meta = "${params.model}.meta"
@@ -32,10 +31,6 @@ Channel
     .fromPath(model_meta)
     .ifEmpty { exit 1, "Model meta file not found: ${model_meta}" }
     .set { model_meta }
-Channel
-    .fromPath(model)
-    .ifEmpty { exit 1, "Model meta base name not found: ${model}" }
-    .set { model }
 
 Channel
       .fromPath(params.reads)
@@ -116,7 +111,7 @@ process mark_duplicates {
     """
 }
 
-clairvoyante = marked_bam_clairvoyante.merge(fasta_clairvoyante, fai_clairvoyante, model, model_data, model_index, model_meta)
+clairvoyante = marked_bam_clairvoyante.merge(fasta_clairvoyante, fai_clairvoyante, model_data, model_index, model_meta)
 
 process clairvoyante {
     tag "$bam"
@@ -126,11 +121,13 @@ process clairvoyante {
     cpus threads
 
     input:
-    set val(name), file(bam), file(bai), file(fasta), file(fai), val(model), file(model_data), file(model_index), file(model_meta) from clairvoyante
+    set val(name), file(bam), file(bai), file(fasta), file(fai), file(model_data), file(model_index), file(model_meta) from clairvoyante
 
     output:
     set file("${name}.vcf.gz"), file("${name}.vcf.gz.tbi") into clairvoyante_vcf 
 
+    script:
+    model = model_index.getName().substring(0, model_index.getName().lastIndexOf(".index"))
     // TODO: add optional param for `--bed_fn <file.bed> \`
     """
     clairvoyante.py callVarBamParallel \
