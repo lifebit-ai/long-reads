@@ -2,7 +2,7 @@
 
 To run the pipeline use the command:
 ```
-nextflow run main.nf --reads s3://giab/data/AshkenazimTrio/HG002_NA24385_son/CORNELL_Oxford_Nanopore/giab.hg002.2D.fastq --fasta deepvariant-data/genomes/hg19/hg19.fa
+nextflow run main.nf --reads s3://giab/data/AshkenazimTrio/HG002_NA24385_son/CORNELL_Oxford_Nanopore/giab.hg002.2D.fastq --fasta s3://deepvariant-data/genomes/hg19/hg19.fa
 ```
 (Don't use the data in the `testdata` folder as `sniffles` will fail due to too few reads being detected in the BAM file)
 
