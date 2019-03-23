@@ -210,7 +210,7 @@ process filter_svim {
     set val(name), file(vcf) from svim_vcf
 
     output:
-    set val(name), file("${name}.vcf") into svim_filtered_vcf 
+    set val(name), file("${name}.vcf") into (svim_filtered_1, svim_filtered_2)
 
     """
     cat $vcf | \
@@ -224,7 +224,7 @@ process sv_length_plot {
     container 'lifebitai/sv-plots:latest'
 
     input:
-    set val(name), file(vcf) from svim_filtered_vcf
+    set val(name), file(vcf) from svim_filtered_1
 
     output:
     file("*")
@@ -240,7 +240,7 @@ process sv_plot_carriers {
     container 'lifebitai/sv-plots:latest'
 
     input:
-    set val(name), file(vcf) from svim_filtered_vcf
+    set val(name), file(vcf) from svim_filtered_2
 
     output:
     file("*")
