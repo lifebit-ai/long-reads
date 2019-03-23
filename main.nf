@@ -219,33 +219,33 @@ process filter_svim {
     """
 }
 
-// process sv_length_plot {
-//     publishDir "${params.outdir}/plots", mode: 'copy'
-//     container 'lifebitai/sv-plots:latest'
+process sv_length_plot {
+    publishDir "${params.outdir}/plots", mode: 'copy'
+    container 'lifebitai/sv-plots:latest'
 
-//     input:
-//     set val(name), file(vcf) from svim_filtered_vcf
+    input:
+    set val(name), file(vcf) from svim_filtered_vcf
 
-//     output:
-//     file("*")
+    output:
+    file("*")
 
-//     """
-//     SV-length-plot.py $vcf --output SV-length_${name}.png --counts ${name}.txt
-//     """
-// }
+    """
+    SV-length-plot.py $vcf --output SV-length_${name}.png --counts ${name}.txt
+    """
+}
 
 
-// process sv_plot_carriers {
-//     publishDir "${params.outdir}/plots", mode: 'copy'
-//     container 'lifebitai/sv-plots:latest'
+process sv_plot_carriers {
+    publishDir "${params.outdir}/plots", mode: 'copy'
+    container 'lifebitai/sv-plots:latest'
 
-//     input:
-//     set val(name), file(vcf) from svim_filtered_vcf
+    input:
+    set val(name), file(vcf) from svim_filtered_vcf
 
-//     output:
-//     file("*")
+    output:
+    file("*")
 
-//     """
-//     SV-carriers-plot.py $vcf --output SV-${name}_carriers.png
-//     """
-// }
+    """
+    SV-carriers-plot.py $vcf --output SV-${name}_carriers.png
+    """
+}
