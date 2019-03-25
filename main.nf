@@ -209,7 +209,7 @@ process filter_svim {
     set val(name), file(vcf) from svim_vcf
 
     output:
-    set val(name), file("${name}.vcf") into svim_filtered_vcf 
+    set val(name), file("${name}.vcf") into (svim_filtered_1, svim_filtered_2)
 
     """
     cat $vcf | \
@@ -218,33 +218,33 @@ process filter_svim {
     """
 }
 
-// process sv_length_plot {
-//     publishDir "${params.outdir}/plots", mode: 'copy'
-//     container 'lifebitai/sv-plots:latest'
+process sv_length_plot {
+    publishDir "${params.outdir}/plots", mode: 'copy'
+    container 'lifebitai/sv-plots:latest'
 
-//     input:
-//     set val(name), file(vcf) from svim_filtered_vcf
+    input:
+    set val(name), file(vcf) from svim_filtered_1
 
-//     output:
-//     file("*")
+    output:
+    file("*")
 
-//     """
-//     SV-length-plot.py $vcf --output SV-length_${name}.png --counts ${name}.txt
-//     """
-// }
+    """
+    SV-length-plot.py $vcf --output SV-length_${name}.png --counts ${name}.txt
+    """
+}
 
 
-// process sv_plot_carriers {
-//     publishDir "${params.outdir}/plots", mode: 'copy'
-//     container 'lifebitai/sv-plots:latest'
+process sv_plot_carriers {
+    publishDir "${params.outdir}/plots", mode: 'copy'
+    container 'lifebitai/sv-plots:latest'
 
-//     input:
-//     set val(name), file(vcf) from svim_filtered_vcf
+    input:
+    set val(name), file(vcf) from svim_filtered_2
 
-//     output:
-//     file("*")
+    output:
+    file("*")
 
-//     """
-//     SV-carriers-plot.py $vcf --output SV-${name}_carriers.png
-//     """
-// }
+    """
+    SV-carriers-plot.py $vcf --output SV-${name}_carriers.png
+    """
+}
