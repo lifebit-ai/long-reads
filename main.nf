@@ -13,24 +13,25 @@ Channel
     .into {fai_clairvoyante; fasta_sniffles}
 }
 
-// set model
-model_data = "${params.model}.data-00000-of-00001"
-model_index = "${params.model}.index"
-model_meta = "${params.model}.meta"
-
-
-Channel
-    .fromPath(model_data)
-    .ifEmpty { exit 1, "Model data file not found: ${model_data}" }
-    .set { model_data }
-Channel
-    .fromPath(model_index)
-    .ifEmpty { exit 1, "Model index file not found: ${model_index}" }
-    .set { model_index }
-Channel
-    .fromPath(model_meta)
-    .ifEmpty { exit 1, "Model meta file not found: ${model_meta}" }
-    .set { model_meta }
+// set the trained model files for Clairvoyante
+params.data = params.model ? params.models[ params.model ].data ?: false : false
+if (params.data) {
+    Channel.fromPath(params.data)
+           .ifEmpty { exit 1, "Trained model data file for Clairvoyante not found: ${params.data}" }
+           .set { model_data }
+}
+params.index = params.model ? params.models[ params.model ].index ?: false : false
+if (params.index) {
+    Channel.fromPath(params.index)
+           .ifEmpty { exit 1, "Trained model index file for Clairvoyante not found: ${params.index}" }
+           .set { model_index }
+}
+params.meta = params.model ? params.models[ params.model ].meta ?: false : false
+if (params.meta) {
+    Channel.fromPath(params.meta)
+           .ifEmpty { exit 1, "Trained model meta file for Clairvoyante not found: ${params.meta}" }
+           .set { model_meta }
+}
 
 Channel
       .fromPath(params.reads)
