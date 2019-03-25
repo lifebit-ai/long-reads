@@ -203,6 +203,7 @@ process svim {
 process filter_svim {
     tag "$vcf"
     publishDir "${params.outdir}/svim", mode: 'copy'
+    container 'lifebitai/svim:latest'
 
     input:
     set val(name), file(vcf) from svim_vcf
