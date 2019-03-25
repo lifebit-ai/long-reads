@@ -178,12 +178,16 @@ process sniffles {
     set val(name), file(bam), file(bai) from bam_md_sniffles
 
     output:
-    set file(bam), file("${name}.vcf") into sniffles_vcf 
+    file("sniffles_${name}.vcf") into sniffles_vcf
 
     """
-    sniffles --mapped_reads $bam --vcf ${name}.vcf -s ${params.min_support} --threads ${task.cpus}
+    sniffles --mapped_reads $bam --vcf sniffles_${name}.vcf -s ${params.min_support} --threads ${task.cpus}
     """
 }
+
+sniffles_vcf
+    .map { file -> tuple(file.baseName, file) }
+    .into { sniffles_vcf_length; sniffles_vcf_carriers }
 
 process svim {
     tag "$bam"
@@ -203,47 +207,56 @@ process svim {
 process filter_svim {
     tag "$vcf"
     publishDir "${params.outdir}/svim", mode: 'copy'
+    container 'lifebitai/svim:latest'
 
     input:
     set val(name), file(vcf) from svim_vcf
 
     output:
-    set val(name), file("${name}.vcf") into svim_filtered_vcf 
+    file("svim_${name}.vcf") into svim_filtered_vcf
 
     """
     cat $vcf | \
          awk '{{ if(\$1 ~ /^#/) {{ print \$0 }} \
-         else {{ if(\$6>10) {{ print \$0 }} }} }}' > ${name}.vcf
+         else {{ if(\$6>10) {{ print \$0 }} }} }}' > svim_${name}.vcf
     """
 }
 
-// process sv_length_plot {
-//     publishDir "${params.outdir}/plots", mode: 'copy'
-//     container 'lifebitai/sv-plots:latest'
+svim_filtered_vcf
+    .map { file -> tuple(file.baseName, file) }
+    .into { svim_filtered_vcf_length; svim_filtered_vcf_carriers}
 
-//     input:
-//     set val(name), file(vcf) from svim_filtered_vcf
+process sv_length_plot {
+    publishDir "${params.outdir}/plots", mode: 'copy'
+    container 'lifebitai/sv-plots:latest'
 
-//     output:
-//     file("*")
+    input:
+    set val(sniffles_name), file(sniffles_vcf) from sniffles_vcf_length
+    set val(svim_name), file(svim_vcf) from svim_filtered_vcf_length
 
-//     """
-//     SV-length-plot.py $vcf --output SV-length_${name}.png --counts ${name}.txt
-//     """
-// }
+    output:
+    set file("SV-length_${sniffles_name}.png"), file("${sniffles_name}.txt"), file("SV-length_${svim_name}.png"), file("${svim_name}.txt") into sv_length_plots
+
+    """
+    SV-length-plot.py $sniffles_vcf -o SV-length_${sniffles_name}.png -c ${sniffles_name}.txt
+    SV-length-plot.py $svim_vcf -o SV-length_${svim_name}.png -c ${svim_name}.txt
+    """
+}
 
 
-// process sv_plot_carriers {
-//     publishDir "${params.outdir}/plots", mode: 'copy'
-//     container 'lifebitai/sv-plots:latest'
+process sv_carriers_plot {
+    publishDir "${params.outdir}/plots", mode: 'copy'
+    container 'lifebitai/sv-plots:latest'
 
-//     input:
-//     set val(name), file(vcf) from svim_filtered_vcf
+    input:
+    set val(sniffles_name), file(sniffles_vcf) from sniffles_vcf_carriers
+    set val(svim_name), file(svim_vcf) from svim_filtered_vcf_carriers
 
-//     output:
-//     file("*")
+    output:
+    set file("SV-${sniffles_name}_carriers.png"), file("SV-${svim_name}_carriers.png") into sv_carriers_plots
 
-//     """
-//     SV-carriers-plot.py $vcf --output SV-${name}_carriers.png
-//     """
-// }
+    """
+    SV-carriers-plot.py $sniffles_vcf -o SV-${sniffles_name}_carriers.png
+    SV-carriers-plot.py $svim_vcf -o SV-${svim_name}_carriers.png
+    """
+}
