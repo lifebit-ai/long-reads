@@ -254,6 +254,29 @@ svim_filtered_vcf
     .map { file -> tuple(file.baseName, file) }
     .into { svim_filtered_vcf_length; svim_filtered_vcf_carriers}
 
+process multiqc {
+    tag "multiqc_report.html"
+
+    publishDir "${params.outdir}/MultiQC", mode: 'copy'
+    container 'ewels/multiqc:v1.7'
+
+    input:
+    file bam_metrics from mark_dup_report
+    file bam_qc_report from bam_qc_report
+
+    when: 
+    !params.skip_multiqc
+
+    output:
+    file "*multiqc_report.html" into multiqc_report
+    file "*_data"
+
+    script:
+    """
+    multiqc . -m qualimap -m picard -m gatk -m bcftools
+    """
+}
+
 process sv_length_plot {
     publishDir "${params.outdir}/plots", mode: 'copy'
     container 'lifebitai/sv-plots:latest'
@@ -289,30 +312,6 @@ process sv_carriers_plot {
     """
 }
 
-process multiqc {
-    tag "multiqc_report.html"
-
-    publishDir "${params.outdir}/MultiQC", mode: 'copy'
-    container 'ewels/multiqc:v1.7'
-
-    input:
-    file bam_metrics from mark_dup_report
-    file bam_qc_report from bam_qc_report
-
-    when: 
-    !params.skip_multiqc
-
-    output:
-    file "*multiqc_report.html" into multiqc_report
-    file "*_data"
-
-    script:
-    """
-    multiqc . -m qualimap -m picard -m gatk -m bcftools
-    """
-}
-
-
 process deploit_report {
     tag ".report.json"
     publishDir "${params.outdir}/Visualisations", mode: 'copy'
@@ -337,8 +336,16 @@ process deploit_report {
     tail -n +2 $sniffles_table > sniffles.tsv
     tail -n +2 $svim_table > svim.tsv
 
-    tsv2csv.py < sniffles.tsv > sniffles.csv
-    tsv2csv.py < svim.tsv > svim.csv
+    tsv2csv.py < sniffles.tsv > sniffles_tmp.csv
+    tsv2csv.py < svim.tsv > svim_tmp.csv
+
+    # reformat
+    cat sniffles_tmp.csv | sed "s/://g" | sed "s/ variants//g" | sed "s/bp//g" > sniffles.csv
+    cat svim_tmp.csv | sed "s/://g" | sed "s/ variants//g" | sed "s/bp//g" > svim.csv
+
+    # add header
+    sed -i '1iType of Structural Variant,Number of Variants,Length /bp' sniffles.csv
+    sed -i '1iType of Structural Variant,Number of Variants,Length /bp' svim.csv
 
     csv2json.py sniffles.csv "\${sniffles_title}" "${sniffles_table}.json" False
     csv2json.py svim.csv "\${svim_title}" "${svim_table}.json" False
