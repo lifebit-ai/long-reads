@@ -101,7 +101,7 @@ process mark_duplicates {
 
     output:
     set val(name), file("${name}-marked_dup.bam"), file("${name}-marked_dup.bai") into marked_bam_clairvoyante, marked_bam_sniffles, marked_bam_svim
-    file ("${name}.bam.metrics") into mark_dup_report
+    file "${name}.bam.metrics" into mark_dup_report
 
     """
     gatk MarkDuplicates \
@@ -258,6 +258,28 @@ process sv_carriers_plot {
     """
     SV-carriers-plot.py $sniffles_vcf -o SV-carriers_${sniffles_name}.png
     SV-carriers-plot.py $svim_vcf -o SV-carriers_${svim_name}.png
+    """
+}
+
+process multiqc {
+    tag "multiqc_report.html"
+
+    publishDir "${params.outdir}/MultiQC", mode: 'copy'
+    container 'ewels/multiqc:v1.7'
+
+    input:
+    file bam_metrics from mark_dup_report
+
+    when: 
+    !params.skip_multiqc
+
+    output:
+    file "*multiqc_report.html" into multiqc_report
+    file "*_data"
+
+    script:
+    """
+    multiqc . -m qualimap -m picard -m gatk -m bcftools
     """
 }
 
