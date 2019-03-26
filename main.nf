@@ -100,8 +100,8 @@ process mark_duplicates {
     set val(name), file(bam) from sorted_bam
 
     output:
-    set val(name), file("${name}-marked_dup.bam"), file("${name}-marked_dup.bai") into marked_bam_clairvoyante, marked_bam_sniffles, marked_bam_svim
-    file ("${name}.bam.metrics") into mark_dup_report
+    set val(name), file("${name}-marked_dup.bam"), file("${name}-marked_dup.bai") into marked_bam_qc, marked_bam_clairvoyante, marked_bam_sniffles, marked_bam_svim
+    file "${name}.bam.metrics" into mark_dup_report
 
     """
     gatk MarkDuplicates \
@@ -109,6 +109,34 @@ process mark_duplicates {
     --CREATE_INDEX true \
     -M ${name}.bam.metrics \
     -O ${name}-marked_dup.bam
+    """
+}
+
+process bam_qc {
+    tag "$bam"
+    container 'maxulysse/sarek:latest'
+
+    input:
+    set val(name), file(bam), file(bai) from marked_bam_qc
+
+    output:
+    file("${name}") into bam_qc_report
+
+    when: !params.skip_multiqc
+
+    script:
+    // TODO: add `--java-mem-size=${task.memory.toGiga()}G`
+    """
+    qualimap \
+    bamqc \
+    -bam ${bam} \
+    --paint-chromosome-limits \
+    --genome-gc-distr HUMAN \
+    -nt ${task.cpus} \
+    -skip-duplicated \
+    --skip-dup-mode 0 \
+    -outdir ${name} \
+    -outformat HTML
     """
 }
 
@@ -129,7 +157,7 @@ process clairvoyante {
 
     script:
     model = model_index.getName().substring(0, model_index.getName().lastIndexOf(".index"))
-    // TODO: add optional param for `--bed_fn <file.bed> \`
+    // TODO: add optional param for `--bed_fn $bed \`
     """
     clairvoyante.py callVarBamParallel \
        --chkpnt_fn $model \
@@ -261,8 +289,32 @@ process sv_carriers_plot {
     """
 }
 
+process multiqc {
+    tag "multiqc_report.html"
+
+    publishDir "${params.outdir}/MultiQC", mode: 'copy'
+    container 'ewels/multiqc:v1.7'
+
+    input:
+    file bam_metrics from mark_dup_report
+    file bam_qc_report from bam_qc_report
+
+    when: 
+    !params.skip_multiqc
+
+    output:
+    file "*multiqc_report.html" into multiqc_report
+    file "*_data"
+
+    script:
+    """
+    multiqc . -m qualimap -m picard -m gatk -m bcftools
+    """
+}
+
 
 process deploit_report {
+    tag ".report.json"
     publishDir "${params.outdir}/Visualisations", mode: 'copy'
 
     container 'lifebitai/vizjson:latest'
