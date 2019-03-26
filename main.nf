@@ -10,7 +10,7 @@ if(params.fai){
 Channel
     .fromPath(params.fai)
     .ifEmpty{exit 1, "FASTA index file not found: ${params.fai}"}
-    .into {fai_clairvoyante; fasta_sniffles}
+    .into {fai_clairvoyante; fai_sniffles}
 }
 
 // set the trained model files for Clairvoyante
@@ -253,10 +253,49 @@ process sv_carriers_plot {
     set val(svim_name), file(svim_vcf) from svim_filtered_vcf_carriers
 
     output:
-    set file("SV-${sniffles_name}_carriers.png"), file("SV-${svim_name}_carriers.png") into sv_carriers_plots
+    set file("SV-carriers_${sniffles_name}.png"), file("SV-carriers_${svim_name}.png") into sv_carriers_plots
 
     """
-    SV-carriers-plot.py $sniffles_vcf -o SV-${sniffles_name}_carriers.png
-    SV-carriers-plot.py $svim_vcf -o SV-${svim_name}_carriers.png
+    SV-carriers-plot.py $sniffles_vcf -o SV-carriers_${sniffles_name}.png
+    SV-carriers-plot.py $svim_vcf -o SV-carriers_${svim_name}.png
+    """
+}
+
+
+process deploit_report {
+    publishDir "${params.outdir}/Visualisations", mode: 'copy'
+
+    container 'lifebitai/vizjson:latest'
+
+    input:
+    set file(sv_sniffles_length_plot), file(sniffles_table), file(sv_length_svim_plot), file(svim_table) from sv_length_plots
+    set file(sniffles_carriers_plot), file(svim_carriers_plot) from sv_carriers_plots
+
+    output:
+    file '.report.json' into results
+
+    when:
+    !params.skip_deploit_report
+
+    script:
+    """
+    sniffles_title=\$(head -n 1 $sniffles_table)
+    svim_title=\$(head -n 1 $svim_table)
+
+    tail -n +2 $sniffles_table > sniffles.tsv
+    tail -n +2 $svim_table > svim.tsv
+
+    tsv2csv.py < sniffles.tsv > sniffles.csv
+    tsv2csv.py < svim.tsv > svim.csv
+
+    csv2json.py sniffles.csv "\${sniffles_title}" "${sniffles_table}.json" False
+    csv2json.py svim.csv "\${svim_title}" "${svim_table}.json" False
+
+    img2json.py "results/plots/${sv_sniffles_length_plot}" "Sniffles Length Plot" "${sv_sniffles_length_plot}.json"
+    img2json.py "results/plots/${sv_length_svim_plot}" "SVIM Length Plot" "${sv_length_svim_plot}.json"
+    img2json.py "results/plots/${sniffles_carriers_plot}" "Sniffles Carriers Plot" "${sniffles_carriers_plot}.json"
+    img2json.py "results/plots/${svim_carriers_plot}" "SVIM Carriers Plot" "${svim_carriers_plot}.json"
+
+    combine_reports.py .
     """
 }
